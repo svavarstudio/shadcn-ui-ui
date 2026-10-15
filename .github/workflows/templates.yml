@@ -66,6 +66,10 @@ jobs:
       - name: Install Bun
         uses: oven-sh/setup-bun@v2
 
+      - name: Install npm with current peer resolver
+        if: matrix.package-manager == 'npm'
+        run: npm install --global npm@11.21.1
+
       - name: Install Yarn
         if: matrix.package-manager == 'yarn'
         run: |
