@@ -197,7 +197,13 @@ describe("shadcn add", () => {
   it("should show no changes for identical files with diff", async () => {
     const fixturePath = await createFixtureTestDirectory("next-app-init")
 
-    await npxShadcn(fixturePath, ["add", "button", "--yes"])
+    // A cold dependency install can exceed the CLI helper's 60-second default.
+    const setupResult = await npxShadcn(
+      fixturePath,
+      ["add", "button", "--yes"],
+      { timeout: 120000 }
+    )
+    expectCommandSuccess(setupResult)
 
     const result = await npxShadcn(fixturePath, [
       "add",
@@ -209,9 +215,11 @@ describe("shadcn add", () => {
 
     expectCommandSuccess(result)
     expect(result.stdout).toContain("shadcn add button (dry run)")
-    expect(result.stdout).toContain("components/ui/button.tsx (skip)")
+    expect(result.stdout).toContain(
+      `${path.join("components", "ui", "button.tsx")} (skip)`
+    )
     expect(result.stdout).toContain("No changes.")
-  })
+  }, 180000)
 
   it("should add item with target to src", async () => {
     const fixturePath = await createFixtureTestDirectory("vite-app")
