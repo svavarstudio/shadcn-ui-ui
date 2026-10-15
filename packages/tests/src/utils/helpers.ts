@@ -27,6 +27,24 @@ export async function createFixtureTestDirectory(fixtureName: string) {
   return testDir
 }
 
+export function normalizeCommandResult(
+  result: {
+    stdout?: string
+    stderr?: string
+    exitCode?: number
+    timedOut?: boolean
+  },
+  timeout = 60000
+) {
+  return {
+    stdout: result.stdout || "",
+    stderr: result.timedOut
+      ? `${result.stderr || ""}\nCommand timed out after ${timeout}ms.`
+      : result.stderr || "",
+    exitCode: result.exitCode ?? 1,
+  }
+}
+
 export async function runCommand(
   cwd: string,
   args: string[],
@@ -52,11 +70,7 @@ export async function runCommand(
 
     const result = await childProcess
 
-    return {
-      stdout: result.stdout || "",
-      stderr: result.stderr || "",
-      exitCode: result.exitCode ?? 0,
-    }
+    return normalizeCommandResult(result, options?.timeout)
   } catch (error: any) {
     return {
       stdout: error.stdout || "",

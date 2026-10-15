@@ -4,6 +4,9 @@ on:
   pull_request:
     branches: ["*"]
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -12,16 +15,16 @@ jobs:
       NEXT_PUBLIC_APP_URL: http://localhost:4000
       NEXT_PUBLIC_V0_URL: https://v0.dev
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Install Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v7
         with:
           node-version: 22
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6.0.9
         name: Install pnpm
         id: pnpm-install
         with:
@@ -32,7 +35,7 @@ jobs:
         id: pnpm-cache
         run: |
           echo "pnpm_cache_dir=$(pnpm store path)" >> $GITHUB_OUTPUT
-      - uses: actions/cache@v3
+      - uses: actions/cache@v5
         name: Setup pnpm cache
         with:
           path: ${{ steps.pnpm-cache.outputs.pnpm_cache_dir }}
@@ -42,25 +45,40 @@ jobs:
       - name: Install Bun
         uses: oven-sh/setup-bun@v2
 
+      - name: Install npm with current peer resolver
+        run: npm install --global npm@11.21.1
+
       - name: Install dependencies
         run: pnpm install
 
-      - run: pnpm test
+      - name: Build workspace dependencies
+        run: pnpm --filter=shadcn --filter=@shadcn/react build
+
+      - name: Build registry
+        run: pnpm --filter=v4 registry:build
+
+      - name: Verify unchanged-file integration setup
+        run: >-
+          pnpm exec start-server-and-test "pnpm v4:dev" http://localhost:4000
+          "pnpm --filter=tests exec vitest run src/tests/add.test.ts -t 'should show no changes for identical files with diff'"
+
+      - name: Run full test suite
+        run: pnpm exec start-server-and-test "pnpm v4:dev" http://localhost:4000 "pnpm test:dev"
 
   react:
     runs-on: ubuntu-latest
     name: pnpm test (@shadcn/react)
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Install Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v7
         with:
           node-version: 22
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6.0.9
         name: Install pnpm
         id: pnpm-install
         with:
@@ -71,7 +89,7 @@ jobs:
         id: pnpm-cache
         run: |
           echo "pnpm_cache_dir=$(pnpm store path)" >> $GITHUB_OUTPUT
-      - uses: actions/cache@v3
+      - uses: actions/cache@v5
         name: Setup pnpm cache
         with:
           path: ${{ steps.pnpm-cache.outputs.pnpm_cache_dir }}
