@@ -91,6 +91,7 @@ jobs:
       - name: Build packages
         run: |
           pnpm --filter=shadcn build
+          pnpm --filter=@shadcn/react build
           pnpm --filter=v4 registry:build
 
       - name: Validate templates
