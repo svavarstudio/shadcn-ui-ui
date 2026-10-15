@@ -1,0 +1,64 @@
+name: Fork maintenance
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: maintenance-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  packages:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    env:
+      PUPPETEER_SKIP_DOWNLOAD: "true"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6.0.9
+        with:
+          version: 10.33.4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter shadcn --filter @shadcn/react build
+      - name: CSS transformation compatibility
+        run: pnpm --filter shadcn exec vitest run test/utils/updaters/update-css.test.ts test/utils/updaters/update-css-vars.test.ts
+      - run: pnpm --filter @shadcn/react test
+
+  template-install:
+    name: Frozen install (${{ matrix.template }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        template:
+          [
+            next-monorepo,
+            react-router-app,
+            react-router-monorepo,
+            start-monorepo,
+          ]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6.0.9
+        with:
+          version: 10.33.4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: pnpm install --frozen-lockfile
+        working-directory: templates/${{ matrix.template }}
