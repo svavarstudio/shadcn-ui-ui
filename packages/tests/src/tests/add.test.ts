@@ -1,5 +1,6 @@
 import path from "path"
 import fs from "fs-extra"
+import { registryItemSchema } from "shadcn/schema"
 import { describe, expect, it } from "vitest"
 
 import {
@@ -197,13 +198,31 @@ describe("shadcn add", () => {
   it("should show no changes for identical files with diff", async () => {
     const fixturePath = await createFixtureTestDirectory("next-app-init")
 
-    // A cold dependency install can exceed the CLI helper's 60-second default.
-    const setupResult = await npxShadcn(
-      fixturePath,
-      ["add", "button", "--yes"],
-      { timeout: 120000 }
+    // Exercise file idempotence in a project with its dependencies declared.
+    // Dependency installation is covered by the add and template tests.
+    const registryResponse = await fetch(
+      `${getRegistryUrl()}/styles/new-york-v4/button.json`
     )
+    expect(registryResponse.ok).toBe(true)
+    const registryItem = registryItemSchema.parse(await registryResponse.json())
+    const registryPackage = await fs.readJson(
+      path.resolve(__dirname, "../../../../apps/v4/package.json")
+    )
+    const packagePath = path.join(fixturePath, "package.json")
+    const packageJson = await fs.readJson(packagePath)
+    for (const dependency of registryItem.dependencies ?? []) {
+      const version = registryPackage.dependencies[dependency]
+      expect(typeof version).toBe("string")
+      packageJson.dependencies[dependency] ??= version
+    }
+    await fs.writeJson(packagePath, packageJson, { spaces: 2 })
+
+    const setupResult = await npxShadcn(fixturePath, ["add", "button", "--yes"])
     expectCommandSuccess(setupResult)
+    const buttonPath = path.join(fixturePath, "components", "ui", "button.tsx")
+    expect(await fs.pathExists(buttonPath)).toBe(true)
+    const installedButton = await fs.readFile(buttonPath, "utf8")
+    expect(installedButton).toContain("buttonVariants")
 
     const result = await npxShadcn(fixturePath, [
       "add",
@@ -219,7 +238,8 @@ describe("shadcn add", () => {
       `${path.join("components", "ui", "button.tsx")} (skip)`
     )
     expect(result.stdout).toContain("No changes.")
-  }, 180000)
+    expect(await fs.readFile(buttonPath, "utf8")).toBe(installedButton)
+  })
 
   it("should add item with target to src", async () => {
     const fixturePath = await createFixtureTestDirectory("vite-app")

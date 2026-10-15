@@ -54,8 +54,10 @@ export async function runCommand(
 
     return {
       stdout: result.stdout || "",
-      stderr: result.stderr || "",
-      exitCode: result.exitCode ?? 0,
+      stderr: result.timedOut
+        ? `${result.stderr || ""}\nCommand timed out after ${options?.timeout ?? 60000}ms.`
+        : result.stderr || "",
+      exitCode: result.exitCode ?? 1,
     }
   } catch (error: any) {
     return {
