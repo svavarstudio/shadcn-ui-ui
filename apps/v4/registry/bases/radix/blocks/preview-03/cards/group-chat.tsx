@@ -60,6 +60,19 @@ type ChatEventUserTyping = {
 
 type ChatEvent = ChatEventUserLeft | ChatEventUserJoined | ChatEventUserTyping
 
+function isChatEvent(data: unknown): data is ChatEvent {
+  return (
+    typeof data === "object" &&
+    data !== null &&
+    "name" in data &&
+    typeof data.name === "string" &&
+    "type" in data &&
+    (data.type === "user-left" ||
+      data.type === "user-joined" ||
+      data.type === "user-typing")
+  )
+}
+
 type DataTypes = {
   event: ChatEvent
 }
@@ -203,10 +216,11 @@ export function GroupChat() {
     messages: initialMessages,
     transport,
     onData: (part) => {
-      if (part.type === "data-event") {
+      const data = part.data
+      if (part.type === "data-event" && isChatEvent(data)) {
         if (
-          part.data.type === "user-typing" &&
-          messages.some((message) => message.metadata?.name === part.data.name)
+          data.type === "user-typing" &&
+          messages.some((message) => message.metadata?.name === data.name)
         ) {
           return
         }
@@ -215,20 +229,17 @@ export function GroupChat() {
           .getData()
           .find(
             (currentPart) =>
-              currentPart.data.type === part.data.type &&
-              currentPart.data.name === part.data.name
+              currentPart.data.type === data.type &&
+              currentPart.data.name === data.name
           )
 
         setEvents((events) =>
           [
             ...events.filter(
-              (event) =>
-                !(
-                  event.type === part.data.type && event.name === part.data.name
-                )
+              (event) => !(event.type === data.type && event.name === data.name)
             ),
             {
-              ...part.data,
+              ...data,
               order: scriptedPart?.order ?? messages.length - 0.5,
               delayMs: scriptedPart?.delayMs ?? 0,
             },
